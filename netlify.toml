@@ -1,2 +1,8 @@
 [build]
   publish = "pages"
+[[redirects]]
+  # Redirige cualquier /slug/ a /pages/slug/index.html internamente
+  from   = "/:slug/"
+  to     = "/pages/:slug/index.html"
+  status = 200
+  force  = true
