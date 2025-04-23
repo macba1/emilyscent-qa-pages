@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>EmilyScent QA</title>
+  <style>
+    body { margin:0; padding:2rem; font-family:Inter,sans-serif; background:#f3e8df; color:#2C1D13 }
+    .container { max-width:800px; margin:auto; background:#fff; border-radius:16px;
+                 box-shadow:0 10px 24px rgba(0,0,0,0.1); padding:2rem }
+    h1 { color:#e74266 }
+    p.answer { font-size:1.125rem; margin-bottom:1rem }
+    p.perfume { font-weight:bold }
+    a.cta { display:inline-block; background:#e74266; color:#fff;
+            padding:0.75rem 1.5rem; border-radius:8px; text-decoration:none }
+  </style>
+</head>
+<body>
+  <div class="container" id="qa">
+    <h1>Loading…</h1>
+  </div>
+  <script>
+    (async function() {
+      const slug = location.pathname.replace(/^\\/|\\/$/g, '');
+      const res = await fetch(
+        'https://docs.google.com/spreadsheets/d/1mXAJjrOK7IeLegcu5M3g1Qbyeu7W3okvnhHEFFVmuF4/export?format=csv'
+      );
+      const text = await res.text();
+      const rows = text.trim().split('\\n').map(r => r.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/));
+      const headers = rows.shift().map(h => h.replace(/^"|"$/g, ''));
+      const data = rows.map(r => {
+        const obj = {};
+        r.forEach((c,i) => obj[headers[i]] = c.replace(/^"|"$/g, ''));
+        return obj;
+      });
+      const item = data.find(o => o.Slug === slug);
+      const container = document.getElementById('qa');
+      if (!item) {
+        container.innerHTML = '<h1>Page not found</h1>';
+        return;
+      }
+      container.innerHTML = `
+        <h1>${item['SEO Question']}</h1>
+        <p class="answer">${item['Sarcastic Answer']}</p>
+        <p class="perfume">Perfume: <em>${item['Perfume Name']}</em></p>
+        <p><a class="cta" href="${item['Amazon Affiliate Link']}" target="_blank">Buy on Amazon</a></p>
+      `;
+    })();
+  </script>
+</body>
+</html>
