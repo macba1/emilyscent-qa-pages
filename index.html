@@ -20,32 +20,47 @@
     <h1>Loading…</h1>
   </div>
   <script>
-    (async function() {
-      const slug = location.pathname.replace(/^\\/|\\/$/g, '');
-      const res = await fetch(
-  'https://docs.google.com/spreadsheets/d/e/2PACX-1vRqTC-g6t0GGGJhTvaMXVxWyl-Tf1-Q7NviTCqC5xN9QQpSGGU7yThU2pJjSLnNe3LxDw1i1U9SeIoQ/pub?gid=0&single=true&output=csv'
-);
-      const text = await res.text();
-      const rows = text.trim().split('\\n').map(r => r.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/));
-      const headers = rows.shift().map(h => h.replace(/^"|"$/g, ''));
-      const data = rows.map(r => {
-        const obj = {};
-        r.forEach((c,i) => obj[headers[i]] = c.replace(/^"|"$/g, ''));
-        return obj;
-      });
-      const item = data.find(o => o.Slug === slug);
-      const container = document.getElementById('qa');
-      if (!item) {
-        container.innerHTML = '<h1>Page not found</h1>';
-        return;
+  (async function() {
+    // 1) Extraemos el slug de la URL
+    const slug = location.pathname.replace(/^\/|\/$/g, '');
+    // 2) URL del JSON Feed público de tu hoja (p.ej. sheetId y hoja #1)
+    const feedUrl = 
+      'https://spreadsheets.google.com/feeds/cells/1mXAJjrOK7IeLegcu5M3g1Qbyeu7W3okvnhHEFFVmuF4/1/public/full?alt=json';
+    // 3) Hacemos fetch (con CORS OK)
+    const resp = await fetch(feedUrl);
+    const json = await resp.json();
+    // 4) Organizamos las celdas en filas
+    const entries = json.feed.entry;
+    const header = {};
+    const rows = {};
+    entries.forEach(e => {
+      const r = e.gs$cell.row;
+      const c = e.gs$cell.col;
+      const v = e.gs$cell.$t;
+      if (r === '1') {
+        // fila 1: cabeceras
+        header[c] = v;
+      } else {
+        rows[r] = rows[r] || {};
+        rows[r][ header[c] ] = v;
       }
-      container.innerHTML = `
-        <h1>${item['SEO Question']}</h1>
-        <p class="answer">${item['Sarcastic Answer']}</p>
-        <p class="perfume">Perfume: <em>${item['Perfume Name']}</em></p>
-        <p><a class="cta" href="${item['Amazon Affiliate Link']}" target="_blank">Buy on Amazon</a></p>
-      `;
-    })();
-  </script>
+    });
+    const data = Object.values(rows);
+    // 5) Buscamos el objeto cuyo Slug coincida
+    const item = data.find(o => o.Slug === slug);
+    const container = document.getElementById('qa');
+    if (!item) {
+      container.innerHTML = '<h1>Page not found</h1>';
+      return;
+    }
+    // 6) Inyectamos el HTML
+    container.innerHTML = `
+      <h1>${item['SEO Question']}</h1>
+      <p class="answer">${item['Sarcastic Answer']}</p>
+      <p class="perfume">Perfume: <em>${item['Perfume Name']}</em></p>
+      <p><a class="cta" href="${item['Amazon Affiliate Link']}" target="_blank">Buy on Amazon</a></p>
+    `;
+  })();
+</script>
 </body>
 </html>
