@@ -1,6 +1,0 @@
-[build]
-  # No hay build steps: mantén la carpeta pages/ como docroot
-  publish = "pages"
-  command = "echo 'skip build'"
-
-# Ya no necesitas redirects porque pages/*/index.html se sirve directamente
