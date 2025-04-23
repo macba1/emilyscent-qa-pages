@@ -1,65 +1,48 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>EmilyScent QA</title>
-  <style>
-    body { margin:0; padding:2rem; font-family:Inter,sans-serif; background:#f3e8df; color:#2C1D13 }
-    .container { max-width:800px; margin:auto; background:#fff; border-radius:16px;
-                 box-shadow:0 10px 24px rgba(0,0,0,0.1); padding:2rem }
-    h1 { color:#e74266 }
-    p.answer { font-size:1.125rem; margin-bottom:1rem }
-    p.perfume { font-weight:bold }
-    a.cta { display:inline-block; background:#e74266; color:#fff;
-            padding:0.75rem 1.5rem; border-radius:8px; text-decoration:none }
-  </style>
-</head>
-<body>
-  <div class="container" id="qa">
-    <h1>Loading…</h1>
-  </div>
 <script>
   (async function() {
-    // 1) Obtenemos el slug de la URL
+    // 1) Extrae slug de la URL
     const slug = location.pathname.replace(/^\/|\/$/g, '');
     // 2) URL gviz CORS-friendly
-    const apiUrl = 
+    const apiUrl =
       'https://docs.google.com/spreadsheets/d/1mXAJjrOK7IeLegcu5M3g1Qbyeu7W3okvnhHEFFVmuF4/gviz/tq?gid=0&tqx=out:json';
-    // 3) Fetch y parseo del JSONP
-    const res = await fetch(apiUrl);
+    // 3) Fetch + JSONP → JSON puro
+    const res  = await fetch(apiUrl);
     const text = await res.text();
-    // Google envuelve el JSON en: /*O_o*/google.visualization.Query.setResponse( ... );
     const json = JSON.parse(
       text
-        .replace(/^\/\*.*?\*\//, '')            // quita comentario inicial
-        .replace(/^[^(]*\(([\s\S]*)\);?$/, '$1') // extrae lo que está entre paréntesis
+        .replace(/^\/\*.*?\*\//, '')
+        .replace(/^[^(]*\(([\s\S]*)\);?$/, '$1')
     );
-    // 4) La data real está en json.table.rows
+    // 4) Construye array de objetos { col1: v1, col2: v2, … }
     const cols = json.table.cols.map(c => c.label);
     const data = json.table.rows.map(r =>
-      r.c.reduce((obj, cell, i) => {
-        obj[cols[i]] = cell && cell.v;
-        return obj;
+      r.c.reduce((o, cell, i) => {
+        o[cols[i]] = cell && cell.v;
+        return o;
       }, {})
     );
-    // 5) Busca el item por Slug
+    // 5) Encuentra la fila que coincide con el slug
     const item = data.find(o => o.Slug === slug);
     const container = document.getElementById('qa');
     if (!item) {
       container.innerHTML = '<h1>Page not found</h1>';
       return;
     }
-    // 6) Renderiza tu QA
+    // 6) Detecta dinámicamente la columna de Affiliate
+    const affKey = cols.find(label =>
+      /Amazon Aff/i.test(label)
+    );
+    const affiliateUrl = affKey ? item[affKey] : '#';
+    // 7) Renderiza
     container.innerHTML = `
       <h1>${item['SEO Question']}</h1>
       <p class="answer">${item['Sarcastic Answer']}</p>
       <p class="perfume">Perfume: <em>${item['Perfume Name']}</em></p>
-      <p><a class="cta" href="${item['Amazon Affiliate Link']}" target="_blank">
-        Buy on Amazon</a>
+      <p>
+        <a class="cta" href="${affiliateUrl}" target="_blank">
+          Buy on Amazon
+        </a>
       </p>
     `;
   })();
 </script>
-</body>
-</html>
