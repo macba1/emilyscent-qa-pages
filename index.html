@@ -19,46 +19,45 @@
   <div class="container" id="qa">
     <h1>Loading…</h1>
   </div>
-  <script>
+<script>
   (async function() {
-    // 1) Extraemos el slug de la URL
+    // 1) Obtenemos el slug de la URL
     const slug = location.pathname.replace(/^\/|\/$/g, '');
-    // 2) URL del JSON Feed público de tu hoja (p.ej. sheetId y hoja #1)
-    const feedUrl = 
-      'https://spreadsheets.google.com/feeds/cells/1mXAJjrOK7IeLegcu5M3g1Qbyeu7W3okvnhHEFFVmuF4/1/public/full?alt=json';
-    // 3) Hacemos fetch (con CORS OK)
-    const resp = await fetch(feedUrl);
-    const json = await resp.json();
-    // 4) Organizamos las celdas en filas
-    const entries = json.feed.entry;
-    const header = {};
-    const rows = {};
-    entries.forEach(e => {
-      const r = e.gs$cell.row;
-      const c = e.gs$cell.col;
-      const v = e.gs$cell.$t;
-      if (r === '1') {
-        // fila 1: cabeceras
-        header[c] = v;
-      } else {
-        rows[r] = rows[r] || {};
-        rows[r][ header[c] ] = v;
-      }
-    });
-    const data = Object.values(rows);
-    // 5) Buscamos el objeto cuyo Slug coincida
+    // 2) URL gviz CORS-friendly
+    const apiUrl = 
+      'https://docs.google.com/spreadsheets/d/1mXAJjrOK7IeLegcu5M3g1Qbyeu7W3okvnhHEFFVmuF4/gviz/tq?gid=0&tqx=out:json';
+    // 3) Fetch y parseo del JSONP
+    const res = await fetch(apiUrl);
+    const text = await res.text();
+    // Google envuelve el JSON en: /*O_o*/google.visualization.Query.setResponse( ... );
+    const json = JSON.parse(
+      text
+        .replace(/^\/\*.*?\*\//, '')            // quita comentario inicial
+        .replace(/^[^(]*\(([\s\S]*)\);?$/, '$1') // extrae lo que está entre paréntesis
+    );
+    // 4) La data real está en json.table.rows
+    const cols = json.table.cols.map(c => c.label);
+    const data = json.table.rows.map(r =>
+      r.c.reduce((obj, cell, i) => {
+        obj[cols[i]] = cell && cell.v;
+        return obj;
+      }, {})
+    );
+    // 5) Busca el item por Slug
     const item = data.find(o => o.Slug === slug);
     const container = document.getElementById('qa');
     if (!item) {
       container.innerHTML = '<h1>Page not found</h1>';
       return;
     }
-    // 6) Inyectamos el HTML
+    // 6) Renderiza tu QA
     container.innerHTML = `
       <h1>${item['SEO Question']}</h1>
       <p class="answer">${item['Sarcastic Answer']}</p>
       <p class="perfume">Perfume: <em>${item['Perfume Name']}</em></p>
-      <p><a class="cta" href="${item['Amazon Affiliate Link']}" target="_blank">Buy on Amazon</a></p>
+      <p><a class="cta" href="${item['Amazon Affiliate Link']}" target="_blank">
+        Buy on Amazon</a>
+      </p>
     `;
   })();
 </script>
