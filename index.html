@@ -23,8 +23,8 @@
     (async function() {
       const slug = location.pathname.replace(/^\\/|\\/$/g, '');
       const res = await fetch(
-        'https://docs.google.com/spreadsheets/d/e/2PACX-1vRqTC-g6t0GGGJhTvaMXVxWyl-Tf1-Q7NviTCqC5xN9QQpSGGU7yThU2pJjSLnNe3LxDw1i1U9SeIoQ/pub?gid=0&single=true&output=csv'
-      );
+  'https://docs.google.com/spreadsheets/d/e/2PACX-1vRqTC-g6t0GGGJhTvaMXVxWyl-Tf1-Q7NviTCqC5xN9QQpSGGU7yThU2pJjSLnNe3LxDw1i1U9SeIoQ/pub?gid=0&single=true&output=csv'
+);
       const text = await res.text();
       const rows = text.trim().split('\\n').map(r => r.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/));
       const headers = rows.shift().map(h => h.replace(/^"|"$/g, ''));
