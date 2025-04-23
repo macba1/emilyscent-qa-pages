@@ -1,0 +1,5 @@
+[build]
+  # Publica todo lo que veas en la raíz del repo
+  publish = "."
+  # No necesitamos pasos de build, saltémoslo
+  command = "echo 'skip build'"
