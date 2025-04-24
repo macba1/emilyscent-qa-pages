@@ -32,7 +32,7 @@ exports.handler = async (event) => {
     }
   }
 
-  // 4) If any missing, serve the multi-step quiz
+  // 4) Serve multi-step quiz if missing any
   if (!target || !gender || !personality || !mood || !budget) {
     const formHtml = `<!DOCTYPE html>
 <html lang="en">
@@ -104,52 +104,37 @@ exports.handler = async (event) => {
     </div>
   </div>
   <script>
-    // client-side slugify
     function slugify(str) {
       return str.trim().toLowerCase()
         .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
         .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
     }
-
     const steps = Array.from(document.querySelectorAll('.step'));
     const progress = document.getElementById('progress');
     const prevBtn = document.getElementById('prev');
     const nextBtn = document.getElementById('next');
     let index = 0;
-
-    function updateProgress() {
-      progress.style.width = ((index / (steps.length - 1)) * 100) + '%';
-    }
-
+    function updateProgress() { progress.style.width = ((index/(steps.length-1))*100) + '%'; }
     function updateUI() {
-      steps.forEach((s,i) => s.classList.toggle('active', i === index));
-      updateProgress();
-      prevBtn.disabled = index === 0;
-      nextBtn.textContent = index === steps.length - 1 ? 'Submit' : 'Next';
+      steps.forEach((s,i) => s.classList.toggle('active', i===index));
+      updateProgress(); prevBtn.disabled = index===0;
+      nextBtn.textContent = index===steps.length-1 ? 'Submit' : 'Next';
     }
-
-    prevBtn.onclick = () => { if (index>0) index--; updateUI(); };
+    prevBtn.onclick = () => { if(index>0) index--; updateUI(); };
     nextBtn.onclick = () => {
       const field = steps[index].querySelector('input,select');
-      if (!field.value.trim()) { alert('Please fill in the field.'); return; }
-      if (index < steps.length - 1) {
-        index++; updateUI();
-      } else {
-        // capture values
-        const t = slugify(document.getElementById('target').value);
-        const g = slugify(document.getElementById('gender').value);
-        const p = slugify(document.getElementById('personality').value);
-        const m = slugify(document.getElementById('mood').value);
-        const b = slugify(document.getElementById('budget').value);
-        // show loading
-        document.querySelector('.quiz-wrapper').innerHTML =
-          '<p>Cooking your sassy recommendation... 🍾</p>';
-        setTimeout(() => {
-          window.location.href = '/' + [t,g,p,m,b].join('-');
-        }, 500);
+      if(!field.value.trim()){alert('Please fill in the field.');return;}
+      if(index<steps.length-1){index++;updateUI();}
+      else {
+        const t=slugify(document.getElementById('target').value);
+        const g=slugify(document.getElementById('gender').value);
+        const p=slugify(document.getElementById('personality').value);
+        const m=slugify(document.getElementById('mood').value);
+        const b=slugify(document.getElementById('budget').value);
+        document.querySelector('.quiz-wrapper').innerHTML='<p>Cooking your sassy recommendation... 🍾</p>';
+        setTimeout(()=>window.location.href='/' + [t,g,p,m,b].join('-'),500);
       }
     };
-
     updateUI();
   </script>
 </body>
@@ -162,17 +147,15 @@ exports.handler = async (event) => {
     };
   }
 
-  // 5) Build SEO-friendly question
+  // 5) Build SEO question
   const question =
     `Which ${gender} perfume should I gift to ${target}, ` +
     `who is ${personality}, to evoke a ${mood} mood within a budget of ${budget}?`;
 
-  // 6) Prompt GPT for JSON with direct affiliate link
+  // 6) Prompt GPT for JSON
   const prompt = `You are EmilyGPT, an irreverent, elegant, and sarcastic perfume expert.
-Answer strictly in JSON with keys: "perfumeName", "reason", "amazonLink".
-AmazonLink must be the full product URL including ?tag=emilyscent-20.
-Example output:
-{"perfumeName":"Chanel No.5 Eau de Parfum","reason":"Classic bomb for queens.","amazonLink":"https://www.amazon.com/dp/B000CEXN64?tag=emilyscent-20"}
+Answer in JSON with keys: \"perfumeName\", \"reason\", \"amazonLink\".
+AmazonLink must be the full search URL with affiliate params.
 Now answer: ${question}`;
 
   const resp = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -191,33 +174,37 @@ Now answer: ${question}`;
       max_tokens: 300
     })
   });
-  if (!resp.ok) throw new Error("OpenAI error (" + resp.status + ")");
+  if (!resp.ok) throw new Error(`OpenAI error (${resp.status})`);
 
   const { choices } = await resp.json();
   const raw = choices[0].message.content;
   const jsonText = raw.substring(raw.indexOf("{"), raw.lastIndexOf("}") + 1);
   let json;
-  try {
-    json = JSON.parse(jsonText);
-  } catch (e) {
+  try { json = JSON.parse(jsonText); } catch (e) {
     throw new Error("GPT returned invalid JSON:\n" + raw);
   }
-  const { perfumeName, reason, amazonLink } = json;
+  const { perfumeName, reason } = json;
 
-  // 7) Render result with SEO tags
+  // 7) Build full affiliate search URL
+  const linkId = "29d49a9185b1f48a905c292658d3be8a";
+  const query = encodeURIComponent(perfumeName + " perfume");
+  const amazonLink =
+    `https://www.amazon.com/s?k=${query}` +
+    `&linkCode=ll2&tag=emilyscent-20&linkId=${linkId}` +
+    `&language=en_US&ref_=as_li_ss_tl`;
+
+  // 8) Render result
   const resultHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>${perfumeName} – ${target}'s Perfume</title>
-  <meta name="description" content="${question} I recommend ${perfumeName}." />
+  <meta name="description" content="${question} I recommend ${perfumeName}."/>
 </head>
 <body style="font-family:sans-serif;padding:2rem">
   <div style="max-width:600px;margin:0 auto;">
-    <h1>Your Question</h1>
-    <p>${question}</p>
-    <h2>EmilyGPT Says</h2>
-    <p>${reason}</p>
+    <h1>Your Question</h1><p>${question}</p>
+    <h2>EmilyGPT Says</h2><p>${reason}</p>
     <h3>Perfume: <em>${perfumeName}</em></h3>
     <a href="${amazonLink}" target="_blank" style="display:inline-block;margin-top:1rem;padding:.5rem 1rem;background:#e74266;color:#fff;text-decoration:none;border-radius:4px">
       Buy on Amazon
@@ -232,3 +219,4 @@ Now answer: ${question}`;
     body: resultHtml
   };
 };
+
