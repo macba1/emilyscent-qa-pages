@@ -1,7 +1,7 @@
-const { Configuration, OpenAIApi } = require("openai");
+// functions/recommend.js
 
 exports.handler = async (event) => {
-  // CORS preflight
+  // Soporte CORS preflight
   if (event.httpMethod === "OPTIONS") {
     return {
       statusCode: 204,
@@ -13,39 +13,52 @@ exports.handler = async (event) => {
     };
   }
 
-  // Parámetros
+  // Parámetros de la URL
   const qp = event.queryStringParameters || {};
   const { target, personality, intention } = qp;
   if (!target || !personality || !intention) {
     return { statusCode: 400, body: "Missing parameters" };
   }
 
-  // Construir pregunta SEO
+  // Construir pregunta
   const question = `What perfume should I gift to ${decodeURIComponent(target)}, who is ${decodeURIComponent(personality)}, so they feel ${decodeURIComponent(intention)}?`;
 
-  // Llamada a OpenAI
-  const openai = new OpenAIApi(new Configuration({ apiKey: process.env.OPENAI_API_KEY }));
-  const resp = await openai.createChatCompletion({
-    model: "gpt-4",
-    messages: [
-      { role: "system", content: "You're EmilyGPT, irreverent & sarcastic perfume guru." },
-      { role: "user",   content: question }
-    ],
-    temperature: 0.9,
-    max_tokens: 400
+  // Llamada directa a OpenAI usando fetch
+  const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
+    },
+    body: JSON.stringify({
+      model: "gpt-4",
+      messages: [
+        { role: "system", content: "You're EmilyGPT, irreverent & sarcastic perfume guru." },
+        { role: "user",   content: question }
+      ],
+      temperature: 0.9,
+      max_tokens: 400
+    })
   });
 
-  const answer = resp.data.choices[0].message.content.trim();
+  if (!resp.ok) {
+    const errText = await resp.text();
+    return { statusCode: resp.status, body: `OpenAI error: ${errText}` };
+  }
+
+  const { choices } = await resp.json();
+  const answer = choices[0].message.content.trim();
 
   // Extraer nombre de perfume
   const m = answer.match(/(?:try|recommend|suggest)\s+"?([^".,]+?)"?[.,\n]/i);
   const perfume = m ? m[1] : "Unknown Perfume";
 
-  // Montar enlace de afiliado
+  // Enlace de afiliado
   const affiliate = `https://www.amazon.com/s?k=${encodeURIComponent(perfume + " perfume")}&tag=emilyscent-20`;
 
-  // Generar HTML
-  const html = `<!DOCTYPE html>
+  // Generar HTML de la página
+  const html = `
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
