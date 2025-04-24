@@ -1,9 +1,17 @@
 [build]
-  publish   = "public"
+  # No tenemos carpeta “publish” estática
   functions = "functions"
 
-# [[redirects]]
-#   from   = "/:target-:personality-:intention"
-#   to     = "/.netlify/functions/recommend?target=:target&personality=:personality&intention=:intention"
-#   status = 200
-#   force  = true
+# Redirige la raíz a la función quiz
+[[redirects]]
+  from   = "/"
+  to     = "/.netlify/functions/quiz"
+  status = 200
+  force  = true
+
+# Redirige los slugs target-personality-intention a la misma función
+[[redirects]]
+  from   = "/:target-:personality-:intention"
+  to     = "/.netlify/functions/quiz?target=:target&personality=:personality&intention=:intention"
+  status = 200
+  force  = true
