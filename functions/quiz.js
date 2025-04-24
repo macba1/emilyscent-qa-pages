@@ -1,7 +1,7 @@
 // functions/quiz.js
 
 exports.handler = async (event) => {
-  // 1) Preflight CORS
+  // 1) CORS preflight
   if (event.httpMethod === "OPTIONS") {
     return {
       statusCode: 204,
@@ -13,18 +13,18 @@ exports.handler = async (event) => {
     };
   }
 
-  // 2) Función para convertir texto a slug
+  // 2) Helper para slugificar
   const slugify = (str) => {
     return str
       .trim()
       .toLowerCase()
       .normalize("NFD")                   // descompone acentos
       .replace(/[\u0300-\u036f]/g, "")    // quita diacríticos
-      .replace(/[^a-z0-9]+/g, "-")        // no alfanuméricos → guiones
-      .replace(/^-+|-+$/g, "");           // quita guiones al inicio/final
+      .replace(/[^a-z0-9]+/g, "-")        // no-alfanuméricos → guiones
+      .replace(/^-+|-+$/g, "");           // quita guiones iniciales/finales
   };
 
-  // 3) Obtener parámetros de query o, si faltan, de la ruta
+  // 3) Extraer parámetros de query o ruta
   let { target, personality, intention } = event.queryStringParameters || {};
   if ((!target || !personality || !intention) && event.path && event.path !== "/") {
     const parts = decodeURIComponent(event.path.slice(1)).split("-");
@@ -35,7 +35,7 @@ exports.handler = async (event) => {
     }
   }
 
-  // 4) Si faltan, devolvemos el formulario estilo Typeform
+  // 4) Si faltan, servir formulario multi-step estilo Typeform
   if (!target || !personality || !intention) {
     const formHtml = `<!DOCTYPE html>
 <html lang="en">
@@ -50,15 +50,16 @@ exports.handler = async (event) => {
            justify-content:center; height:100vh; }
     .quiz-wrapper { width:100%; max-width:400px; padding:2rem;
                     background:var(--step-bg); border-radius:8px;
-                    box-shadow:0 4px 12px rgba(0,0,0,0.05); }
+                    box-shadow:0 4px 12px rgba(0,0,0,0.05); text-align:center; }
     .progress { height:8px; background:#ddd; border-radius:4px;
                 overflow:hidden; margin-bottom:1.5rem; }
-    .progress-bar { width:33%; height:100%; background:var(--primary);
+    .progress-bar { width:0%; height:100%; background:var(--primary);
                     transition:width .3s ease; }
-    .step { display:none; flex-direction:column; gap:1rem; }
+    .step { display:none; flex-direction:column; gap:1rem; text-align:left; }
     .step.active { display:flex; }
+    label { font-weight:600; }
     input { padding:.75rem; font-size:1rem; border:1px solid #ccc;
-            border-radius:4px; }
+            border-radius:4px; width:100%; }
     button { padding:.75rem; font-size:1rem; border:none;
              border-radius:4px; background:var(--primary);
              color:#fff; cursor:pointer; }
@@ -69,20 +70,18 @@ exports.handler = async (event) => {
 </head>
 <body>
   <div class="quiz-wrapper">
-    <div class="progress">
-      <div class="progress-bar" id="progress"></div>
-    </div>
+    <div class="progress"><div class="progress-bar" id="progress"></div></div>
     <div class="step active" data-step="1">
-      <label>¿Para quién es el perfume?</label>
-      <input id="target" placeholder="Ej: my mom" />
+      <label>Who is this perfume for?</label>
+      <input id="target" placeholder="E.g., my mom" />
     </div>
     <div class="step" data-step="2">
-      <label>¿Cómo describirías su personalidad?</label>
-      <input id="personality" placeholder="Ej: happy" />
+      <label>How would you describe their personality?</label>
+      <input id="personality" placeholder="E.g., happy" />
     </div>
     <div class="step" data-step="3">
-      <label>¿Qué quieres que sienta?</label>
-      <input id="intention" placeholder="Ej: more happy" />
+      <label>What do you want them to feel?</label>
+      <input id="intention" placeholder="E.g., more happy" />
     </div>
     <div class="nav">
       <button id="prev" disabled>Back</button>
@@ -90,30 +89,53 @@ exports.handler = async (event) => {
     </div>
   </div>
   <script>
-    const steps = Array.from(document.querySelectorAll('.step'));
+    const steps   = Array.from(document.querySelectorAll('.step'));
     const progress = document.getElementById('progress');
     const prevBtn = document.getElementById('prev');
     const nextBtn = document.getElementById('next');
     let index = 0;
-    function update() {
-      steps.forEach((s,i) => s.classList.toggle('active', i === index));
-      progress.style.width = ((index+1)/steps.length*100) + '%';
-      prevBtn.disabled = index === 0;
-      nextBtn.textContent = index === steps.length-1 ? 'Submit' : 'Next';
+
+    function updateProgress() {
+      // divide por (steps.length-1) para que el último paso marque 100%
+      progress.style.width = ((index / (steps.length - 1)) * 100) + '%';
     }
-    prevBtn.onclick = () => { if(index>0) index--; update(); };
+
+    function updateUI() {
+      steps.forEach((s,i) => s.classList.toggle('active', i === index));
+      updateProgress();
+      prevBtn.disabled = index === 0;
+      nextBtn.textContent = index === steps.length - 1 ? 'Submit' : 'Next';
+    }
+
+    prevBtn.onclick = () => {
+      if (index > 0) index--;
+      updateUI();
+    };
+
     nextBtn.onclick = () => {
       const input = steps[index].querySelector('input');
-      if (!input.value.trim()) return alert('Please fill in the field.');
-      if (index < steps.length-1) {
-        index++; update();
+      if (!input.value.trim()) {
+        alert('Please fill in the field.');
+        return;
+      }
+      if (index < steps.length - 1) {
+        index++;
+        updateUI();
       } else {
+        // último paso: mensaje intermedio y redirección
         const t = slugify(document.getElementById('target').value);
         const p = slugify(document.getElementById('personality').value);
         const i = slugify(document.getElementById('intention').value);
-        window.location.href = '/' + t + '-' + p + '-' + i;
+        document.querySelector('.quiz-wrapper').innerHTML =
+          '<p>Cooking your sassy recommendation... 🍾</p>';
+        setTimeout(() => {
+          window.location.href = '/' + t + '-' + p + '-' + i;
+        }, 500);
       }
     };
+
+    // inicializa
+    updateUI();
   </script>
 </body>
 </html>`;
@@ -153,7 +175,7 @@ exports.handler = async (event) => {
   const data = await resp.json();
   const answer = data.choices[0].message.content.trim();
 
-  // 6) Extraer nombre del perfume
+  // 6) Extraer nombre de perfume
   const m = answer.match(/["“]([^"”]+?)["”]/);
   const perfume = m ? m[1].trim() : "Unknown Perfume";
   const affiliate = "https://www.amazon.com/s?k=" +
