@@ -2,9 +2,8 @@
   publish   = "public"
   functions = "functions"
 
-[[redirects]]
-  # intercepta /target-personality-intention y llama a la función
-  from   = "/:target-:personality-:intention"
-  to     = "/.netlify/functions/recommend?target=:target&personality=:personality&intention=:intention"
-  status = 200
-  force  = true
+# [[redirects]]
+#   from   = "/:target-:personality-:intention"
+#   to     = "/.netlify/functions/recommend?target=:target&personality=:personality&intention=:intention"
+#   status = 200
+#   force  = true
