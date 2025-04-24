@@ -1,7 +1,7 @@
 // functions/quiz.js
 
 exports.handler = async (event) => {
-  // 1) CORS preflight
+  // 1) Handle CORS preflight
   if (event.httpMethod === "OPTIONS") {
     return {
       statusCode: 204,
@@ -13,18 +13,17 @@ exports.handler = async (event) => {
     };
   }
 
-  // 2) Slugify helper (server-side, usado en fallback)
-  const slugify = (str) => {
-    return str
+  // 2) Slugify helper (server‐side)
+  const slugify = (str) =>
+    str
       .trim()
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "");
-  };
 
-  // 3) Extraer params de query o ruta
+  // 3) Extract params from query or path
   let { target, personality, intention } = event.queryStringParameters || {};
   if ((!target || !personality || !intention) && event.path && event.path !== "/") {
     const parts = decodeURIComponent(event.path.slice(1)).split("-");
@@ -35,7 +34,7 @@ exports.handler = async (event) => {
     }
   }
 
-  // 4) Si faltan, servimos el quiz
+  // 4) If any missing, serve the multi‐step quiz
   if (!target || !personality || !intention) {
     const formHtml = `<!DOCTYPE html>
 <html lang="en">
@@ -91,18 +90,14 @@ exports.handler = async (event) => {
     </div>
   </div>
   <script>
-    // CLIENT-SIDE slugify
+    // client‐side slugify
     function slugify(str) {
-      return str
-        .trim()
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '');
+      return str.trim().toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+        .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
     }
 
-    const steps    = Array.from(document.querySelectorAll('.step'));
+    const steps   = Array.from(document.querySelectorAll('.step'));
     const progress = document.getElementById('progress');
     const prevBtn  = document.getElementById('prev');
     const nextBtn  = document.getElementById('next');
@@ -134,20 +129,23 @@ exports.handler = async (event) => {
         index++;
         updateUI();
       } else {
+        // capture values BEFORE wiping the UI
+        const t = slugify(document.getElementById('target').value);
+        const p = slugify(document.getElementById('personality').value);
+        const i = slugify(document.getElementById('intention').value);
+
         // show loading message
         document.querySelector('.quiz-wrapper').innerHTML =
           '<p>Cooking your sassy recommendation... 🍾</p>';
-        // redirect after 0.5s
+
+        // redirect after short pause
         setTimeout(() => {
-          const t = slugify(document.getElementById('target').value);
-          const p = slugify(document.getElementById('personality').value);
-          const i = slugify(document.getElementById('intention').value);
           window.location.href = '/' + t + '-' + p + '-' + i;
         }, 500);
       }
     };
 
-    // init
+    // initialize display
     updateUI();
   </script>
 </body>
@@ -160,7 +158,7 @@ exports.handler = async (event) => {
     };
   }
 
-  // 5) Build question and call OpenAI
+  // 5) Build question and call OpenAI API
   const question = "What perfume should I gift to " +
     target + ", who is " + personality + ", so they feel " + intention + "?";
 
@@ -195,7 +193,7 @@ exports.handler = async (event) => {
   const affiliate = "https://www.amazon.com/s?k=" +
     encodeURIComponent(perfume + " perfume") + "&tag=emilyscent-20";
 
-  // 7) Render result card
+  // 7) Return result card HTML
   const resultHtml = "<!DOCTYPE html>" +
     "<html lang=\"en\"><head><meta charset=\"UTF-8\">" +
     "<title>" + perfume + " – EmilyGPT Recommendation</title>" +
