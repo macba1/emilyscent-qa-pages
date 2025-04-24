@@ -1,0 +1,7 @@
+{
+  "name": "emilyscent-qa-pages",
+  "version": "1.0.0",
+  "dependencies": {
+    "openai": "^4.3.0"
+  }
+}
