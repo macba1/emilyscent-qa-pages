@@ -1,7 +1,7 @@
 // functions/quiz.js
 
 exports.handler = async (event) => {
-  // 1) Handle CORS preflight
+  // 1) Preflight CORS
   if (event.httpMethod === "OPTIONS") {
     return {
       statusCode: 204,
@@ -13,27 +13,29 @@ exports.handler = async (event) => {
     };
   }
 
-  // 2) Slugify helper
-  const slugify = (str) =>
-    str
+  // 2) Función para convertir texto a slug
+  const slugify = (str) => {
+    return str
       .trim()
       .toLowerCase()
-      .normalize("NFD")                 // remove accents
-      .replace(/[\u0300-\u036f]/g, "")  // strip diacritics
-      .replace(/[^a-z0-9]+/g, "-")      // non-alphanumeric → hyphens
-      .replace(/^-+|-+$/g, "");         // trim leading/trailing hyphens
+      .normalize("NFD")                   // descompone acentos
+      .replace(/[\u0300-\u036f]/g, "")    // quita diacríticos
+      .replace(/[^a-z0-9]+/g, "-")        // no alfanuméricos → guiones
+      .replace(/^-+|-+$/g, "");           // quita guiones al inicio/final
+  };
 
-  // 3) Extract parameters from query string or from path fallback
+  // 3) Obtener parámetros de query o, si faltan, de la ruta
   let { target, personality, intention } = event.queryStringParameters || {};
-
   if ((!target || !personality || !intention) && event.path && event.path !== "/") {
     const parts = decodeURIComponent(event.path.slice(1)).split("-");
     if (parts.length >= 3) {
-      [target, personality, intention] = parts;
+      target      = parts[0];
+      personality = parts[1];
+      intention   = parts.slice(2).join("-");
     }
   }
 
-  // 4) If any field is missing, serve the multi-step quiz
+  // 4) Si faltan, devolvemos el formulario estilo Typeform
   if (!target || !personality || !intention) {
     const formHtml = `<!DOCTYPE html>
 <html lang="en">
@@ -41,79 +43,28 @@ exports.handler = async (event) => {
   <meta charset="UTF-8">
   <title>EmilyGPT Perfume Quiz</title>
   <style>
-    :root {
-      --primary: #e74266;
-      --bg: #fff;
-      --text: #333;
-      --step-bg: #f8f8f8;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-    }
-    .quiz-wrapper {
-      width: 100%;
-      max-width: 400px;
-      padding: 2rem;
-      background: var(--step-bg);
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    }
-    .progress {
-      height: 8px;
-      background: #ddd;
-      border-radius: 4px;
-      overflow: hidden;
-      margin-bottom: 1.5rem;
-    }
-    .progress-bar {
-      width: 33%;
-      height: 100%;
-      background: var(--primary);
-      transition: width .3s ease;
-    }
-    .step {
-      display: none;
-      flex-direction: column;
-      gap: 1rem;
-    }
-    .step.active {
-      display: flex;
-    }
-    label {
-      font-weight: 600;
-    }
-    input {
-      padding: .75rem;
-      font-size: 1rem;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-    }
-    button {
-      padding: .75rem;
-      font-size: 1rem;
-      border: none;
-      border-radius: 4px;
-      background: var(--primary);
-      color: #fff;
-      cursor: pointer;
-    }
-    .nav {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 1rem;
-    }
-    .nav button[disabled] {
-      opacity: .5;
-      cursor: default;
-    }
+    :root { --primary:#e74266; --bg:#fff; --text:#333; --step-bg:#f8f8f8; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:sans-serif; background:var(--bg);
+           color:var(--text); display:flex; align-items:center;
+           justify-content:center; height:100vh; }
+    .quiz-wrapper { width:100%; max-width:400px; padding:2rem;
+                    background:var(--step-bg); border-radius:8px;
+                    box-shadow:0 4px 12px rgba(0,0,0,0.05); }
+    .progress { height:8px; background:#ddd; border-radius:4px;
+                overflow:hidden; margin-bottom:1.5rem; }
+    .progress-bar { width:33%; height:100%; background:var(--primary);
+                    transition:width .3s ease; }
+    .step { display:none; flex-direction:column; gap:1rem; }
+    .step.active { display:flex; }
+    input { padding:.75rem; font-size:1rem; border:1px solid #ccc;
+            border-radius:4px; }
+    button { padding:.75rem; font-size:1rem; border:none;
+             border-radius:4px; background:var(--primary);
+             color:#fff; cursor:pointer; }
+    .nav { display:flex; justify-content:space-between;
+           margin-top:1rem; }
+    .nav button[disabled] { opacity:.5; cursor:default; }
   </style>
 </head>
 <body>
@@ -144,32 +95,23 @@ exports.handler = async (event) => {
     const prevBtn = document.getElementById('prev');
     const nextBtn = document.getElementById('next');
     let index = 0;
-
     function update() {
-      steps.forEach((s, i) => s.classList.toggle('active', i === index));
-      progress.style.width = `${(index + 1) / steps.length * 100}%`;
+      steps.forEach((s,i) => s.classList.toggle('active', i === index));
+      progress.style.width = ((index+1)/steps.length*100) + '%';
       prevBtn.disabled = index === 0;
-      nextBtn.textContent = index === steps.length - 1 ? 'Submit' : 'Next';
+      nextBtn.textContent = index === steps.length-1 ? 'Submit' : 'Next';
     }
-
-    prevBtn.onclick = () => {
-      if (index > 0) index--;
-      update();
-    };
-
+    prevBtn.onclick = () => { if(index>0) index--; update(); };
     nextBtn.onclick = () => {
       const input = steps[index].querySelector('input');
-      if (!input.value.trim()) {
-        return alert('Please fill in the field.');
-      }
-      if (index < steps.length - 1) {
-        index++;
-        update();
+      if (!input.value.trim()) return alert('Please fill in the field.');
+      if (index < steps.length-1) {
+        index++; update();
       } else {
         const t = slugify(document.getElementById('target').value);
         const p = slugify(document.getElementById('personality').value);
         const i = slugify(document.getElementById('intention').value);
-        window.location.href = `/${t}-${p}-${i}`;
+        window.location.href = '/' + t + '-' + p + '-' + i;
       }
     };
   </script>
@@ -182,13 +124,15 @@ exports.handler = async (event) => {
     };
   }
 
-  // 5) Build the question and call OpenAI
-  const question = `What perfume should I gift to ${target}, who is ${personality}, so they feel ${intention}?`;
+  // 5) Construir pregunta y llamar a OpenAI
+  const question = "What perfume should I gift to " +
+    target + ", who is " + personality + ", so they feel " + intention + "?";
+
   const resp = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
+      "Authorization": "Bearer " + process.env.OPENAI_API_KEY
     },
     body: JSON.stringify({
       model: "gpt-3.5-turbo",
@@ -203,40 +147,31 @@ exports.handler = async (event) => {
 
   if (!resp.ok) {
     const errText = await resp.text();
-    throw new Error(`OpenAI error (${resp.status}): ${errText}`);
+    throw new Error("OpenAI error (" + resp.status + "): " + errText);
   }
 
-  const { choices } = await resp.json();
-  const answer = choices[0].message.content.trim();
+  const data = await resp.json();
+  const answer = data.choices[0].message.content.trim();
 
-  // 6) Extract perfume name
-  const quoteMatch = answer.match(/["“]([^"”]+?)["”]/);
-  const perfume = quoteMatch ? quoteMatch[1].trim() : "Unknown Perfume";
-  const affiliate = `https://www.amazon.com/s?k=${encodeURIComponent(perfume + " perfume")}&tag=emilyscent-20`;
+  // 6) Extraer nombre del perfume
+  const m = answer.match(/["“]([^"”]+?)["”]/);
+  const perfume = m ? m[1].trim() : "Unknown Perfume";
+  const affiliate = "https://www.amazon.com/s?k=" +
+    encodeURIComponent(perfume + " perfume") + "&tag=emilyscent-20";
 
-  // 7) Render result card
-  const resultHtml = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>${perfume} – EmilyGPT Recommendation</title>
-  <style>
-    body { font-family: sans-serif; padding: 2rem; }
-    .card { border: 1px solid #ddd; padding: 1rem; border-radius: 8px; max-width: 600px; margin: 0 auto; }
-    .cta { display: inline-block; margin-top: 1rem; padding: .5rem 1rem; background: #e74266; color: #fff; text-decoration: none; border-radius: 4px; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <h1>Your Question</h1>
-    <p>${question}</p>
-    <h2>EmilyGPT Says</h2>
-    <p>${answer.replace(/\n/g, "<br>")}</p>
-    <h3>Perfume: <em>${perfume}</em></h3>
-    <a class="cta" href="${affiliate}" target="_blank">Buy on Amazon</a>
-  </div>
-</body>
-</html>`;
+  // 7) Renderizar tarjeta de resultado
+  const resultHtml = "<!DOCTYPE html>" +
+    "<html lang=\"en\"><head><meta charset=\"UTF-8\">" +
+    "<title>" + perfume + " – EmilyGPT Recommendation</title>" +
+    "<style>body{font-family:sans-serif;padding:2rem}" +
+    ".card{border:1px solid #ddd;padding:1rem;border-radius:8px;max-width:600px;margin:0 auto}" +
+    ".cta{display:inline-block;margin-top:1rem;padding:.5rem 1rem;background:#e74266;color:#fff;text-decoration:none;border-radius:4px}" +
+    "</style></head><body><div class=\"card\">" +
+    "<h1>Your Question</h1><p>" + question + "</p>" +
+    "<h2>EmilyGPT Says</h2><p>" + answer.replace(/\n/g, "<br>") + "</p>" +
+    "<h3>Perfume: <em>" + perfume + "</em></h3>" +
+    "<a class=\"cta\" href=\"" + affiliate + "\" target=\"_blank\">Buy on Amazon</a>" +
+    "</div></body></html>";
 
   return {
     statusCode: 200,
