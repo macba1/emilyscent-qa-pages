@@ -1,10 +1,10 @@
 [build]
-  publish = "public"
+  publish   = "public"
   functions = "functions"
 
 [[redirects]]
-# Redirige cualquier /target-personality-intention a la función
-from = "/:target-:personality-:intention"
-to = "/.netlify/functions/recommend?target=:target&personality=:personality&intention=:intention"
-status = 200
-force = true
+  # intercepta /target-personality-intention y llama a la función
+  from   = "/:target-:personality-:intention"
+  to     = "/.netlify/functions/recommend?target=:target&personality=:personality&intention=:intention"
+  status = 200
+  force  = true
