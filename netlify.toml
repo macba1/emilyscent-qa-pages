@@ -1,5 +1,10 @@
 [build]
-  # Publica todo lo que veas en la raíz del repo
-  publish = "."
-  # No necesitamos pasos de build, saltémoslo
-  command = "echo 'skip build'"
+  publish = "public"
+  functions = "functions"
+
+[[redirects]]
+# Redirige cualquier /target-personality-intention a la función
+from = "/:target-:personality-:intention"
+to = "/.netlify/functions/recommend?target=:target&personality=:personality&intention=:intention"
+status = 200
+force = true
