@@ -13,18 +13,18 @@ exports.handler = async (event) => {
     };
   }
 
-  // 2) Helper para slugificar
+  // 2) Slugify helper (server-side, usado en fallback)
   const slugify = (str) => {
     return str
       .trim()
       .toLowerCase()
-      .normalize("NFD")                   // descompone acentos
-      .replace(/[\u0300-\u036f]/g, "")    // quita diacríticos
-      .replace(/[^a-z0-9]+/g, "-")        // no-alfanuméricos → guiones
-      .replace(/^-+|-+$/g, "");           // quita guiones iniciales/finales
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
   };
 
-  // 3) Extraer parámetros de query o ruta
+  // 3) Extraer params de query o ruta
   let { target, personality, intention } = event.queryStringParameters || {};
   if ((!target || !personality || !intention) && event.path && event.path !== "/") {
     const parts = decodeURIComponent(event.path.slice(1)).split("-");
@@ -35,7 +35,7 @@ exports.handler = async (event) => {
     }
   }
 
-  // 4) Si faltan, servir formulario multi-step estilo Typeform
+  // 4) Si faltan, servimos el quiz
   if (!target || !personality || !intention) {
     const formHtml = `<!DOCTYPE html>
 <html lang="en">
@@ -57,7 +57,7 @@ exports.handler = async (event) => {
                     transition:width .3s ease; }
     .step { display:none; flex-direction:column; gap:1rem; text-align:left; }
     .step.active { display:flex; }
-    label { font-weight:600; }
+    label { font-weight:600; text-align:left; }
     input { padding:.75rem; font-size:1rem; border:1px solid #ccc;
             border-radius:4px; width:100%; }
     button { padding:.75rem; font-size:1rem; border:none;
@@ -70,7 +70,9 @@ exports.handler = async (event) => {
 </head>
 <body>
   <div class="quiz-wrapper">
-    <div class="progress"><div class="progress-bar" id="progress"></div></div>
+    <div class="progress">
+      <div class="progress-bar" id="progress"></div>
+    </div>
     <div class="step active" data-step="1">
       <label>Who is this perfume for?</label>
       <input id="target" placeholder="E.g., my mom" />
@@ -89,14 +91,24 @@ exports.handler = async (event) => {
     </div>
   </div>
   <script>
-    const steps   = Array.from(document.querySelectorAll('.step'));
+    // CLIENT-SIDE slugify
+    function slugify(str) {
+      return str
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+    }
+
+    const steps    = Array.from(document.querySelectorAll('.step'));
     const progress = document.getElementById('progress');
-    const prevBtn = document.getElementById('prev');
-    const nextBtn = document.getElementById('next');
+    const prevBtn  = document.getElementById('prev');
+    const nextBtn  = document.getElementById('next');
     let index = 0;
 
     function updateProgress() {
-      // divide por (steps.length-1) para que el último paso marque 100%
       progress.style.width = ((index / (steps.length - 1)) * 100) + '%';
     }
 
@@ -122,23 +134,25 @@ exports.handler = async (event) => {
         index++;
         updateUI();
       } else {
-        // último paso: mensaje intermedio y redirección
-        const t = slugify(document.getElementById('target').value);
-        const p = slugify(document.getElementById('personality').value);
-        const i = slugify(document.getElementById('intention').value);
+        // show loading message
         document.querySelector('.quiz-wrapper').innerHTML =
           '<p>Cooking your sassy recommendation... 🍾</p>';
+        // redirect after 0.5s
         setTimeout(() => {
+          const t = slugify(document.getElementById('target').value);
+          const p = slugify(document.getElementById('personality').value);
+          const i = slugify(document.getElementById('intention').value);
           window.location.href = '/' + t + '-' + p + '-' + i;
         }, 500);
       }
     };
 
-    // inicializa
+    // init
     updateUI();
   </script>
 </body>
 </html>`;
+
     return {
       statusCode: 200,
       headers: { "Content-Type": "text/html" },
@@ -146,7 +160,7 @@ exports.handler = async (event) => {
     };
   }
 
-  // 5) Construir pregunta y llamar a OpenAI
+  // 5) Build question and call OpenAI
   const question = "What perfume should I gift to " +
     target + ", who is " + personality + ", so they feel " + intention + "?";
 
@@ -175,13 +189,13 @@ exports.handler = async (event) => {
   const data = await resp.json();
   const answer = data.choices[0].message.content.trim();
 
-  // 6) Extraer nombre de perfume
+  // 6) Extract perfume name
   const m = answer.match(/["“]([^"”]+?)["”]/);
   const perfume = m ? m[1].trim() : "Unknown Perfume";
   const affiliate = "https://www.amazon.com/s?k=" +
     encodeURIComponent(perfume + " perfume") + "&tag=emilyscent-20";
 
-  // 7) Renderizar tarjeta de resultado
+  // 7) Render result card
   const resultHtml = "<!DOCTYPE html>" +
     "<html lang=\"en\"><head><meta charset=\"UTF-8\">" +
     "<title>" + perfume + " – EmilyGPT Recommendation</title>" +
