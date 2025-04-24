@@ -59,6 +59,7 @@ exports.handler = async (event) => {
 
   // 4) Ya tenemos target, personality e intention → llamamos a OpenAI
   const question = `What perfume should I gift to ${target}, who is ${personality}, so they feel ${intention}?`;
+    // Llamada a OpenAI usando fetch y gpt-3.5-turbo
   const resp = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -66,7 +67,7 @@ exports.handler = async (event) => {
       "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
     },
     body: JSON.stringify({
-      model: "gpt-4",
+      model: "gpt-3.5-turbo",         // <- aquí
       messages: [
         { role: "system", content: "You're EmilyGPT, irreverent & sarcastic perfume guru." },
         { role: "user",   content: question }
@@ -75,9 +76,15 @@ exports.handler = async (event) => {
       max_tokens: 400
     })
   });
+
+  // Si falla la llamada, dejamos que el error se propague para depurar:
+  if (!resp.ok) {
+    const errText = await resp.text();
+    throw new Error(`OpenAI error (${resp.status}): ${errText}`);
+  }
+
   const { choices } = await resp.json();
   const answer = choices[0].message.content.trim();
-
   // 5) Extraemos perfume y montamos el card
   const m = answer.match(/(?:try|recommend|suggest)\s+"?([^".,]+?)"?[.,\n]/i);
   const perfume = m ? m[1] : "Unknown Perfume";
