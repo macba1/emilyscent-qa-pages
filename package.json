@@ -2,6 +2,7 @@
   "name": "emilyscent-qa-pages",
   "version": "1.0.0",
   "dependencies": {
-    "openai": "^4.3.0"
+    "openai": "^4.3.0",
+    "abort-controller": "^3.0.0"
   }
 }
