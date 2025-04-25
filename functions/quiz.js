@@ -237,7 +237,7 @@ exports.handler = async (event) => {
 
   // 8) Log to Google Sheets
   await fetch(
-    "https://script.google.com/macros/s/AKfycbwiKWpt3Hqxr65JlIRft5o_8H05uwHmMv063sQRjCd3HhFBZ8_enyhYrhoiq56Oxka8OA/exec",
+    "https://script.google.com/macros/s/AKfycbz4CEzl7SBTPYVplSnu4lyfaSbB9TejKxl0Fi3He7WTR03Iqf_1AISKC6FM3H02Ne5ROw/exec",
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
