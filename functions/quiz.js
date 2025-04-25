@@ -32,7 +32,7 @@ exports.handler = async (event) => {
     }
   }
 
-  // 4) Serve multi-step quiz if missing any
+  // 4) Serve multi-step quiz if any missing
   if (!target || !gender || !personality || !mood || !budget) {
     const formHtml = `<!DOCTYPE html>
 <html lang="en">
@@ -40,14 +40,20 @@ exports.handler = async (event) => {
   <meta charset="UTF-8">
   <title>EmilyGPT Perfume Quiz</title>
   <style>
-    :root { --primary:#e74266; --bg:#fff; --text:#333; --step-bg:#f8f8f8; }
+    :root { --primary:#C62828; --bg:#F9F5F0; --text:#333333; --step-bg:#FFFFFF; }
     * { box-sizing:border-box; }
     body { margin:0; font-family:sans-serif; background:var(--bg);
            color:var(--text); display:flex; align-items:center;
            justify-content:center; height:100vh; }
-    .quiz-wrapper { width:100%; max-width:400px; padding:2rem;
-                    background:var(--step-bg); border-radius:8px;
-                    box-shadow:0 4px 12px rgba(0,0,0,0.05); text-align:center; }
+    .quiz-wrapper {
+      margin:0 auto;
+      max-width:360px;
+      padding:2rem;
+      background:var(--step-bg);
+      border-radius:8px;
+      box-shadow:0 4px 12px rgba(0,0,0,0.05);
+      text-align:center;
+    }
     .progress { height:8px; background:#ddd; border-radius:4px;
                 overflow:hidden; margin-bottom:1.5rem; }
     .progress-bar { width:0%; height:100%; background:var(--primary);
@@ -120,19 +126,17 @@ exports.handler = async (event) => {
       updateProgress(); prevBtn.disabled = index===0;
       nextBtn.textContent = index===steps.length-1 ? 'Submit' : 'Next';
     }
-    prevBtn.onclick = () => { if(index>0) index--; updateUI(); };
-    nextBtn.onclick = () => {
+    prevBtn.onclick = () => { if(index>0) index--; updateUI(); }; nextBtn.onclick = () => {
       const field = steps[index].querySelector('input,select');
-      if(!field.value.trim()){alert('Please fill in the field.');return;}
-      if(index<steps.length-1){index++;updateUI();}
-      else {
+      if(!field.value.trim()){ alert('Please fill in the field.'); return; }
+      if(index<steps.length-1){ index++; updateUI(); } else {
         const t=slugify(document.getElementById('target').value);
         const g=slugify(document.getElementById('gender').value);
         const p=slugify(document.getElementById('personality').value);
         const m=slugify(document.getElementById('mood').value);
         const b=slugify(document.getElementById('budget').value);
-        document.querySelector('.quiz-wrapper').innerHTML='<p>Cooking your sassy recommendation... 🍾</p>';
-        setTimeout(()=>window.location.href='/' + [t,g,p,m,b].join('-'),500);
+        document.querySelector('.quiz-wrapper').innerHTML = '<p>Cooking your sassy recommendation... 🍾</p>';
+        setTimeout(() => window.location.href='/' + [t,g,p,m,b].join('-'), 500);
       }
     };
     updateUI();
@@ -179,13 +183,13 @@ Now answer: ${question}`;
   const { choices } = await resp.json();
   const raw = choices[0].message.content;
   const jsonText = raw.substring(raw.indexOf("{"), raw.lastIndexOf("}") + 1);
-  let json;
-  try { json = JSON.parse(jsonText); } catch (e) {
+  let data;
+  try { data = JSON.parse(jsonText); } catch (e) {
     throw new Error("GPT returned invalid JSON:\n" + raw);
   }
-  const { perfumeName, reason } = json;
+  const { perfumeName, reason } = data;
 
-  // 7) Build full affiliate search URL
+  // 7) Build affiliate search link
   const linkId = "29d49a9185b1f48a905c292658d3be8a";
   const query = encodeURIComponent(perfumeName + " perfume");
   const amazonLink =
@@ -219,4 +223,3 @@ Now answer: ${question}`;
     body: resultHtml
   };
 };
-
