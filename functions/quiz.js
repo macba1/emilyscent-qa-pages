@@ -153,9 +153,9 @@ exports.handler = async (event) => {
   const linkId = '29d49a9185b1f48a905c292658d3be8a';
   const query = encodeURIComponent(perfumeName + ' perfume');
   const amazonLink =
-    `https://www.amazon.com/s?k=${query}`+
-    `&linkCode=ll2&tag=emilyscent-20&linkId=${linkId}&language=en_US&ref_=as_li_ss_tl`;
-
+    'https://www.amazon.com/s?k=' + query +
+    '&linkCode=ll2&tag=emilyscent-20&linkId=' + linkId +
+    '&language=en_US&ref_=as_li_ss_tl';
   // 8) Log to Google Sheets
   await fetch('https://script.google.com/macros/s/AKfycbwiKWpt3Hqxr65JlIRft5o_8H05uwHmMv063sQRjCd3HhFBZ8_enyhYrhoiq56Oxka8OA/exec',{ method:'POST', headers:{ 'Content-Type':'application/json' },
     body: JSON.stringify({ slug:`${target}-${gender}-${personality}-${mood}-${budget}`, question, perfumeName, reason, amazonLink, timestamp:new Date().toISOString() })
