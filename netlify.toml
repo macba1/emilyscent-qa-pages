@@ -1,21 +1,24 @@
+# netlify.toml (en la raíz del repo)
 [build]
-  # No tenemos carpeta “publish” estática
   functions = "functions"
 
-# Redirige la raíz a la función quiz
+# 1) Primero la ruta specifica /history
+[[redirects]]
+  from   = "/history"
+  to     = "/.netlify/functions/history"
+  status = 200
+  force  = true
+
+# 2) Ahora el slug de 5 partes que llama a quiz
+[[redirects]]
+  from   = "/:target-:gender-:personality-:mood-:budget"
+  to     = "/.netlify/functions/quiz?target=:target&gender=:gender&personality=:personality&mood=:mood&budget=:budget"
+  status = 200
+  force  = true
+
+# 3) Y por último la raíz
 [[redirects]]
   from   = "/"
   to     = "/.netlify/functions/quiz"
   status = 200
   force  = true
-
-# Redirige los slugs target-personality-intention a la misma función
-[[redirects]]
-  from   = "/:target-:personality-:intention"
-  to     = "/.netlify/functions/quiz?target=:target&personality=:personality&intention=:intention"
-  status = 200
-  force  = true
-[[redirects]]
-  from = "/history"
-  to   = "/.netlify/functions/history"
-  status = 200
