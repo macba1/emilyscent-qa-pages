@@ -19,18 +19,18 @@ exports.handler = async (event) => {
       .trim()
       .toLowerCase()
       .normalize("NFD")
-      .replace(/[:"“”]/g, "")
+      .replace(/[\u0300-\u036f]/g, "")
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "");
 
-  // 3) Extract parameters
+  // 3) Extract parameters from query or path
   let { target, gender, personality, mood, budget } = event.queryStringParameters || {};
   if ((!target || !gender || !personality || !mood || !budget) && event.path && event.path !== "/") {
     const parts = decodeURIComponent(event.path.slice(1)).split("-");
     if (parts.length >= 5) [target, gender, personality, mood, budget] = parts;
   }
 
-  // 4) Serve quiz if missing any
+  // 4) Serve multi-step quiz if any missing
   if (!target || !gender || !personality || !mood || !budget) {
     const formHtml = `<!DOCTYPE html>
 <html lang="en">
@@ -80,13 +80,8 @@ exports.handler = async (event) => {
       flex-direction: column;
       gap: 1rem;
     }
-    .step.active {
-      display: flex;
-    }
-    label {
-      font-size: 1rem;
-      margin-bottom: .5rem;
-    }
+    .step.active { display: flex; }
+    label { font-size: 1rem; margin-bottom: .5rem; }
     input, select {
       font-size: 1rem;
       padding: .75rem;
@@ -107,14 +102,8 @@ exports.handler = async (event) => {
       border-radius: 4px;
       cursor: pointer;
     }
-    button#prev {
-      background: #ddd;
-      color: var(--text);
-    }
-    button#next {
-      background: var(--primary);
-      color: #fff;
-    }
+    button#prev { background: #ddd; color: var(--text); }
+    button#next { background: var(--primary); color: #fff; }
   </style>
 </head>
 <body>
@@ -153,6 +142,17 @@ exports.handler = async (event) => {
     </div>
   </div>
   <script>
+    // auto-resize for parent iframe
+    function notifyHeight() {
+      parent.postMessage(
+        { type: 'quiz-height', height: document.documentElement.scrollHeight },
+        '*'
+      );
+    }
+    const ro = new ResizeObserver(notifyHeight);
+    ro.observe(document.body);
+    window.addEventListener('load', notifyHeight);
+
     function slugify(str) {
       return str.trim().toLowerCase()
         .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
@@ -202,10 +202,8 @@ exports.handler = async (event) => {
   const question =
     `Which ${gender} perfume should I gift to ${target}, who is ${personality}, to evoke a ${mood} mood within a budget of ${budget}?`;
 
-  // 6) Prompt GPT for JSON
-  const prompt = `You are EmilyGPT, an irreverent, elegant, and sarcastic perfume expert.
-Answer in JSON with keys: "perfumeName", "reason".
-Now answer: ${question}`;
+  // 6) Prompt GPT for JSON response
+  const prompt = `You are EmilyGPT, an irreverent perfume guru.\nAnswer in JSON with keys: "perfumeName", "reason".\nNow answer: ${question}`;
 
   const resp = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -216,7 +214,7 @@ Now answer: ${question}`;
     body: JSON.stringify({
       model: "gpt-3.5-turbo",
       messages: [
-        { role: "system", content: "You are EmilyGPT, an irreverent perfume guru." },
+        { role: "system", content: "You are EmilyGPT, irreverent perfume guru." },
         { role: "user", content: prompt }
       ],
       temperature: 0.9,
@@ -247,4 +245,24 @@ Now answer: ${question}`;
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>${perfumeName} – ${target}'s Perfume</title>\``}]}
+  <title>${perfumeName} – ${target}'s Perfume</title>
+  <meta name="description" content="${question} I recommend ${perfumeName}."/>
+</head>
+<body style="font-family:sans-serif;padding:2rem">
+  <div style="max-width:600px;margin:0 auto; text-align:center;">
+    <h1>Your Question</h1><p>${question}</p>
+    <h2>EmilyGPT Says</h2><p>${reason}</p>
+    <h3>Perfume: <em>${perfumeName}</em></h3>
+    <a href="${amazonLink}" target="_blank" style="display:inline-block;margin-top:1rem;padding:.5rem 1rem;background:#C62828;color:#fff;text-decoration:none;border-radius:4px">
+      Buy on Amazon
+    </a>
+  </div>
+</body>
+</html>`;
+
+  return {
+    statusCode: 200,
+    headers: { "Content-Type": "text/html" },
+    body: resultHtml
+  };
+};
