@@ -15,3 +15,7 @@
   to     = "/.netlify/functions/quiz?target=:target&personality=:personality&intention=:intention"
   status = 200
   force  = true
+[[redirects]]
+  from = "/history"
+  to   = "/.netlify/functions/history"
+  status = 200
